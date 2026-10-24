@@ -3,3 +3,6 @@ node_modules
 *.log
 tmp/
 .claude/
+
+.env.*
+!.env.example
