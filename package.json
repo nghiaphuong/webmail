@@ -1,0 +1,31 @@
+{
+  "name": "phuongcode-webmail",
+  "version": "1.0.0",
+  "description": "Webmail for mail.phuongcode.com – IMAP/POP3/SMTP (Hostinger), WYSIWYG editor, admin panel, guest registration with approval, random addresses with no-login links, English/Vietnamese",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "echo \"No build step\"",
+    "check": "node scripts/i18n-keys.js",
+    "smoke": "node scripts/smoke.js && node scripts/smoke-pop3.js"
+  },
+  "dependencies": {
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.9",
+    "express": "^4.22.3",
+    "imapflow": "^2.9.1",
+    "mailparser": "^3.12.4",
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6",
+    "nodemailer": "^10.2.1",
+    "sanitize-html": "^2.18.1",
+    "tinymce": "^8.10.0",
+    "tinymce-i18n": "^26.10.19"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
