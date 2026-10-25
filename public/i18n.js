@@ -1,6 +1,15 @@
 /* Từ điển giao diện: tiếng Anh (mặc định) và tiếng Việt. Kiểm tra bằng: node scripts/i18n-keys.js */
 window.I18N = {
   en: {
+    'link.changeExpiry': "Change validity",
+    'link.currentExpiry': "Current expiry",
+    'link.newExpiry': "New validity",
+    'link.fromNow': "{n} from now",
+    'link.extendBy': "Extend current expiry by {n}",
+    'link.customDate': "Pick a date",
+    'link.expiryUpdated': "Link validity updated",
+    'link.revokedNote': "This link is revoked. Press “Restore” to make it usable again.",
+    'err.invalid_expiry': "Choose a date in the future (at most 10 years ahead)",
     'demo.title': 'Try the live demo – no sign-up',
     'demo.sub': 'A private sandbox mailbox with sample messages, just for you.',
     'demo.copy': 'Copy',
@@ -14,7 +23,7 @@ window.I18N = {
     'admin.demoEnabled': 'Enable the demo account',
     ok: 'OK', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', save: 'Save', saved: 'Saved', delete: 'Delete', more: 'More', back: 'Back',
     refresh: 'Refresh', open: 'Open', optional: 'Optional', copied: 'Copied to clipboard', menu: 'Menu', never: 'Never',
-    seconds: '{n} seconds', minutes: '{n} min', days: '{n} days',
+    oneDay: '1 day', seconds: '{n} seconds', minutes: '{n} min', days: '{n} days',
     pager: '{from}–{to} of {total}',
 
     'login.title': 'Sign in – Webmail', 'login.heading': 'Welcome back', 'login.sub': 'Sign in to your mailbox',
@@ -173,6 +182,15 @@ window.I18N = {
   },
 
   vi: {
+    'link.changeExpiry': "Đổi thời hạn",
+    'link.currentExpiry': "Hạn hiện tại",
+    'link.newExpiry': "Thời hạn mới",
+    'link.fromNow': "{n} kể từ hôm nay",
+    'link.extendBy': "Gia hạn thêm {n} từ hạn hiện tại",
+    'link.customDate': "Chọn ngày cụ thể",
+    'link.expiryUpdated': "Đã cập nhật thời hạn link",
+    'link.revokedNote': "Link này đang bị thu hồi. Bấm “Khôi phục” để dùng lại.",
+    'err.invalid_expiry': "Hãy chọn một ngày trong tương lai (tối đa 10 năm)",
     'demo.title': 'Dùng thử ngay – không cần đăng ký',
     'demo.sub': 'Hộp thư thử nghiệm riêng cho bạn, có sẵn thư mẫu.',
     'demo.copy': 'Sao chép',
@@ -186,7 +204,7 @@ window.I18N = {
     'admin.demoEnabled': 'Bật tài khoản demo',
     ok: 'Đồng ý', cancel: 'Hủy', close: 'Đóng', confirm: 'Xác nhận', save: 'Lưu', saved: 'Đã lưu', delete: 'Xóa', more: 'Thêm', back: 'Quay lại',
     refresh: 'Làm mới', open: 'Mở', optional: 'Không bắt buộc', copied: 'Đã sao chép', menu: 'Menu', never: 'Không bao giờ',
-    seconds: '{n} giây', minutes: '{n} phút', days: '{n} ngày',
+    oneDay: '1 ngày', seconds: '{n} giây', minutes: '{n} phút', days: '{n} ngày',
     pager: '{from}–{to} / {total}',
 
     'login.title': 'Đăng nhập – Webmail', 'login.heading': 'Chào mừng trở lại', 'login.sub': 'Đăng nhập vào hộp thư của bạn',

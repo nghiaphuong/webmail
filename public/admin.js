@@ -4,6 +4,7 @@
   const app = $('#app');
   const A = { status: null, domains: [], pending: 0, view: 'dashboard' };
   const enc = encodeURIComponent;
+  const days = d => (d === 1 ? t('oneDay') : t('days', { n: d }));
   const NAV = [
     ['dashboard', 'home'], ['mailboxes', 'mail'], ['random', 'dice'], ['registrations', 'users'], ['domains', 'globe'],
     ['settings', 'server'], ['admins', 'shield'], ['audit', 'list'],
@@ -86,7 +87,7 @@
 
   async function route() {
     if (!A.status?.loggedIn) return;
-    const [k, ...rest] = (location.hash.slice(2) || 'dashboard').split('/');
+    const [k, ...rest] = (location.hash.slice(2).split('?')[0] || 'dashboard').split('/');
     A.view = NAV.some(n => n[0] === k) ? k : 'dashboard';
     document.body.classList.remove('nav-open');
     $$('#anavlist a').forEach(a => a.classList.toggle('on', a.dataset.k === A.view));
@@ -238,6 +239,7 @@
           <span>· ${esc(l.expires_at ? t('link.expiresOn', { date: fmtDate(l.expires_at, true) }) : t('link.noExpiry'))}</span>
           <span>· ${esc(t('link.used', { n: l.use_count }))}</span>
           <span class="grow"></span>
+          <button class="btn sm" data-la="expiry">${icon('clock')}${esc(t('link.changeExpiry'))}</button>
           <button class="btn sm" data-la="send">${esc(l.can_send ? t('link.makeReadOnly') : t('link.allowSend'))}</button>
           <button class="btn sm" data-la="revoke">${esc(l.revoked ? t('link.restore') : t('link.revoke'))}</button>
           <button class="btn sm danger icon" data-la="delete" title="${esc(t('delete'))}">${icon('trash')}</button>
@@ -312,16 +314,69 @@
             if (btn.dataset.la === 'delete') { if (!(await confirmBox(t('link.confirmDelete'), { danger: true, ok: t('delete') }))) return; await api('DELETE', '/api/admin/links/' + lid); }
             if (btn.dataset.la === 'revoke') await api('PATCH', '/api/admin/links/' + lid, { revoked: !l.revoked });
             if (btn.dataset.la === 'send') await api('PATCH', '/api/admin/links/' + lid, { canSend: !l.can_send });
+            if (btn.dataset.la === 'expiry') {
+              const v = await expiryDialog(l);
+              if (v === undefined) return;
+              await api('PATCH', '/api/admin/links/' + lid, { expiresAt: v });
+              toast(t('link.expiryUpdated'), 'ok');
+            }
             again();
           } catch (e) { toast(errText(e), 'error'); }
         }));
       },
     });
   }
+  // Đổi thời hạn của một link: cộng thêm từ hôm nay, gia hạn từ ngày hết hạn hiện tại, chọn ngày cụ thể hoặc không hết hạn.
+  // Trả về ISO string, null (không hết hạn) hoặc undefined (hủy).
+  async function expiryDialog(l) {
+    const cur = l.expires_at ? new Date(l.expires_at.replace(' ', 'T') + 'Z') : null;
+    const future = cur && cur > new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const tomorrow = new Date(Date.now() + 86400e3);
+    const opts = [
+      ...[1, 7, 30, 90, 365].map(d => [`now:${d}`, t('link.fromNow', { n: days(d) })]),
+      ...(future ? [30, 90].map(d => [`ext:${d}`, t('link.extendBy', { n: days(d) })]) : []),
+      ['custom', t('link.customDate')],
+      ['never', t('link.noExpiry')],
+    ];
+    const r = await modal({
+      title: t('link.changeExpiry'),
+      body: `<div class="stack">
+        <div class="kv"><div>${esc(t('link.currentExpiry'))}</div><div><b>${esc(cur ? fmtDate(l.expires_at, true) : t('link.noExpiry'))}</b>${cur && !future ? ` <span class="badge red">${esc(t('link.expired'))}</span>` : ''}</div></div>
+        <label class="field"><span>${esc(t('link.newExpiry'))}</span><select class="input" id="exsel">${opts.map(([v, lb]) => `<option value="${v}">${esc(lb)}</option>`).join('')}</select></label>
+        <label class="field" id="exdatewrap" hidden><span>${esc(t('link.customDate'))}</span><input class="input" type="date" id="exdate" min="${ymd(tomorrow)}" value="${ymd(future ? cur : new Date(Date.now() + 30 * 86400e3))}"></label>
+        <div class="muted small" id="expreview"></div>
+        ${l.revoked ? `<div class="alert warn small">${esc(t('link.revokedNote'))}</div>` : ''}
+      </div>`,
+      onOpen: b => {
+        const sel = $('#exsel', b);
+        const upd = () => {
+          $('#exdatewrap', b).hidden = sel.value !== 'custom';
+          const v = compute(b);
+          $('#expreview', b).textContent = v === false ? '' : `→ ${v ? fmtDate(v, true) : t('link.noExpiry')}`;
+        };
+        sel.onchange = upd; $('#exdate', b).oninput = upd; upd();
+      },
+      buttons: [{ label: t('cancel'), value: undefined }, { label: t('save'), cls: 'primary', onClick: b => { const v = compute(b); return v === false ? false : { v }; } }],
+    });
+    return r && typeof r === 'object' ? r.v : undefined;
+    function compute(b) {
+      const [k, n] = $('#exsel', b).value.split(':');
+      if (k === 'never') return null;
+      if (k === 'now') return new Date(Date.now() + Number(n) * 86400e3).toISOString();
+      if (k === 'ext') return new Date(cur.getTime() + Number(n) * 86400e3).toISOString();
+      const d = $('#exdate', b).value;
+      if (!d) return false;
+      const end = new Date(d + 'T23:59:00');
+      return end > new Date() ? end.toISOString() : false;
+    }
+  }
+
   function linkOptions() {
     return modal({
       title: t('admin.newLink'),
-      body: `<div class="stack"><label class="field"><span data-i18n="admin.expiry"></span><select class="input" id="lexp">${[0, 1, 7, 30, 90, 365].map(d => `<option value="${d}">${esc(d ? t('days', { n: d }) : t('link.noExpiry'))}</option>`).join('')}</select></label>
+      body: `<div class="stack"><label class="field"><span data-i18n="admin.expiry"></span><select class="input" id="lexp">${[0, 1, 7, 30, 90, 365].map(d => `<option value="${d}">${esc(d ? days(d) : t('link.noExpiry'))}</option>`).join('')}</select></label>
         <label class="check"><input type="checkbox" id="lsend" checked><span data-i18n="link.canSend"></span></label></div>`,
       buttons: [{ label: t('cancel'), value: null }, { label: t('admin.create'), cls: 'primary', onClick: b => ({ expiresDays: Number($('#lexp', b).value), canSend: $('#lsend', b).checked }) }],
     });
@@ -338,7 +393,7 @@
         <label class="field"><span data-i18n="admin.charset"></span><select class="input" name="charset">${['alnum', 'letters', 'digits', 'hex'].map(c => `<option value="${c}">${esc(t('charset.' + c))}</option>`).join('')}</select></label>
         <label class="field"><span data-i18n="admin.prefix"></span><input class="input" name="prefix" maxlength="20" pattern="[a-z0-9][a-z0-9._\\-]*" placeholder="${esc(t('optional'))}"></label>
         <label class="field"><span data-i18n="admin.count"></span><input class="input" type="number" name="count" min="1" max="50" value="1"></label>
-        <label class="field"><span data-i18n="admin.expiry"></span><select class="input" name="expiresDays">${[0, 1, 7, 30, 90, 365].map(d => `<option value="${d}" ${d === 30 ? 'selected' : ''}>${esc(d ? t('days', { n: d }) : t('link.noExpiry'))}</option>`).join('')}</select></label>
+        <label class="field"><span data-i18n="admin.expiry"></span><select class="input" name="expiresDays">${[0, 1, 7, 30, 90, 365].map(d => `<option value="${d}" ${d === 30 ? 'selected' : ''}>${esc(d ? days(d) : t('link.noExpiry'))}</option>`).join('')}</select></label>
         <label class="field"><span data-i18n="settings.displayName"></span><input class="input" name="displayName" placeholder="${esc(t('optional'))}"></label>
         <label class="field"><span data-i18n="admin.note"></span><input class="input" name="note" placeholder="${esc(t('admin.notePh'))}"></label>
         <label class="check" style="grid-column:1/-1"><input type="checkbox" name="canSend" checked><span data-i18n="link.canSend"></span></label>

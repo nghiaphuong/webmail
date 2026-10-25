@@ -357,6 +357,16 @@ router.patch('/links/:id', wrap(async (req, res) => {
     const d = int(b.expiresDays, 0, 0, 3650);
     await db.q('UPDATE access_links SET expires_at = ? WHERE id = ?', [d ? sqlDate(Date.now() + d * 86400e3) : null, l.id]);
   }
+  // Ngày hết hạn cụ thể (ISO) hoặc null = không hết hạn.
+  if ('expiresAt' in b) {
+    let at = null;
+    if (b.expiresAt) {
+      const t = Date.parse(b.expiresAt);
+      if (!Number.isFinite(t) || t < Date.now() + 60e3 || t > Date.now() + 3650 * 86400e3) fail(400, 'invalid_expiry');
+      at = sqlDate(t);
+    }
+    await db.q('UPDATE access_links SET expires_at = ? WHERE id = ?', [at, l.id]);
+  }
   await db.audit(actor(req), 'link_updated', String(l.id), JSON.stringify(b).slice(0, 200), req.ip);
   res.json({ ok: true });
 }));
