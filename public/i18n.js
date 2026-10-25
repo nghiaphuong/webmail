@@ -1,6 +1,17 @@
 /* Từ điển giao diện: tiếng Anh (mặc định) và tiếng Việt. Kiểm tra bằng: node scripts/i18n-keys.js */
 window.I18N = {
   en: {
+    'demo.title': 'Try the live demo – no sign-up',
+    'demo.sub': 'A private sandbox mailbox with sample messages, just for you.',
+    'demo.copy': 'Copy',
+    'demo.enter': 'Open the demo mailbox',
+    'demo.or': 'or sign in with your own mailbox',
+    'demo.banner': 'Demo mode – this is your private sandbox. Messages are not really sent (except to {address}); everything is deleted after 6 hours.',
+    'demo.notDelivered': 'Demo mode: saved in Sent, but not delivered outside the demo (send to {address} to receive it).',
+    'demo.noPassword': 'The demo account password cannot be changed.',
+    'admin.demo': 'Public demo account',
+    'admin.demoHint': 'Shown on the sign-in page so visitors and recruiters can try the webmail. Each visitor gets a private sandbox mailbox with sample messages; nothing is ever sent to real recipients.',
+    'admin.demoEnabled': 'Enable the demo account',
     ok: 'OK', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', save: 'Save', saved: 'Saved', delete: 'Delete', more: 'More', back: 'Back',
     refresh: 'Refresh', open: 'Open', optional: 'Optional', copied: 'Copied to clipboard', menu: 'Menu', never: 'Never',
     seconds: '{n} seconds', minutes: '{n} min', days: '{n} days',
@@ -162,6 +173,17 @@ window.I18N = {
   },
 
   vi: {
+    'demo.title': 'Dùng thử ngay – không cần đăng ký',
+    'demo.sub': 'Hộp thư thử nghiệm riêng cho bạn, có sẵn thư mẫu.',
+    'demo.copy': 'Sao chép',
+    'demo.enter': 'Vào hộp thư demo',
+    'demo.or': 'hoặc đăng nhập bằng hộp thư của bạn',
+    'demo.banner': 'Chế độ demo – đây là hộp thư thử nghiệm riêng của bạn. Thư không thực sự được gửi đi (trừ khi gửi tới {address}); mọi dữ liệu bị xóa sau 6 giờ.',
+    'demo.notDelivered': 'Chế độ demo: đã lưu vào Đã gửi nhưng không gửi ra ngoài (gửi tới {address} để tự nhận thư).',
+    'demo.noPassword': 'Không thể đổi mật khẩu của tài khoản demo.',
+    'admin.demo': 'Tài khoản demo công khai',
+    'admin.demoHint': 'Hiển thị ở trang đăng nhập để khách và nhà tuyển dụng dùng thử. Mỗi người vào có một hộp thư thử nghiệm riêng với thư mẫu; không có thư nào được gửi tới người nhận thật.',
+    'admin.demoEnabled': 'Bật tài khoản demo',
     ok: 'Đồng ý', cancel: 'Hủy', close: 'Đóng', confirm: 'Xác nhận', save: 'Lưu', saved: 'Đã lưu', delete: 'Xóa', more: 'Thêm', back: 'Quay lại',
     refresh: 'Làm mới', open: 'Mở', optional: 'Không bắt buộc', copied: 'Đã sao chép', menu: 'Menu', never: 'Không bao giờ',
     seconds: '{n} giây', minutes: '{n} phút', days: '{n} ngày',

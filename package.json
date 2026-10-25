@@ -8,7 +8,7 @@
     "dev": "node --watch server.js",
     "build": "echo \"No build step\"",
     "check": "node scripts/i18n-keys.js",
-    "smoke": "node scripts/smoke.js && node scripts/smoke-pop3.js"
+    "smoke": "node scripts/smoke.js && node scripts/smoke-pop3.js && node scripts/smoke-demo.js"
   },
   "dependencies": {
     "compression": "^1.8.2",

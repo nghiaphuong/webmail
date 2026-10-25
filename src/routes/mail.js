@@ -11,6 +11,7 @@ const stores = require('../mail/store');
 const smtp = require('../mail/smtp');
 const render = require('../mail/render');
 const provision = require('../provision');
+const demo = require('../mail/demo');
 const { passwordOk, token, encrypt } = require('../crypto');
 const { wrap, fail, limited, isEmail, str, int } = require('../util');
 
@@ -49,6 +50,15 @@ router.post('/login', wrap(async (req, res) => {
   const email = str(req.body.email, 254).toLowerCase();
   const password = typeof req.body.password === 'string' ? req.body.password : '';
   if (!isEmail(email) || !password) fail(400, 'invalid_credentials');
+  const st0 = db.settings();
+  // Tài khoản demo: hộp thư hộp cát riêng cho mỗi khách, không cần máy chủ thư.
+  if (st0.demoEnabled && email === String(st0.demoEmail).toLowerCase() && password === st0.demoPassword) {
+    if (limited('demo-ip:' + req.ip, 30, 3600e3)) fail(429, 'too_many_attempts');
+    await session.destroy(req, res, 'user');
+    await session.create(res, { kind: 'demo', address: email, hours: 6, req });
+    await db.audit(email, 'demo_login', '', '', req.ip);
+    return res.json({ ok: true, demo: true });
+  }
   if (limited('login-ip:' + req.ip, 30, 15 * 60e3) || limited('login:' + email, 10, 15 * 60e3)) fail(429, 'too_many_attempts');
   const domain = email.split('@')[1];
   const d = await db.one('SELECT id FROM domains WHERE domain = ? AND active = 1', [domain]);
@@ -78,6 +88,7 @@ router.post('/login', wrap(async (req, res) => {
 
 router.post('/logout', wrap(async (req, res) => {
   if (req.mailSession) stores.drop(req.mailSession.id);
+  if (req.mailSession?.kind === 'demo') setTimeout(() => demo.cleanup(), 1000);
   await session.destroy(req, res, 'user');
   res.json({ ok: true });
 }));
@@ -96,13 +107,13 @@ const uidList = v => (Array.isArray(v) ? v : [v]).map(Number).filter(n => Number
 router.get('/me', wrap(async (req, res) => {
   const s = req.mailSession;
   const mb = await db.one('SELECT display_name, kind FROM mailboxes WHERE address = ?', [s.address]);
-  const prefs = await getPrefs(s.address);
-  const prefsSaved = !!(await db.one("SELECT 1 x FROM user_prefs WHERE address = ?", [s.address]));
+  const prefs = await getPrefs(s.owner);
+  const prefsSaved = !!(await db.one("SELECT 1 x FROM user_prefs WHERE address = ?", [s.owner]));
   let linkExpires = null;
   if (s.kind === 'link') linkExpires = (await db.one('SELECT expires_at FROM access_links WHERE id = ?', [s.link_id]))?.expires_at || null;
   const st = db.settings();
   res.json({
-    address: s.address, kind: s.kind, canSend: !!s.can_send, displayName: prefs.displayName || mb?.display_name || '',
+    address: s.address, kind: s.kind, canSend: !!s.can_send, displayName: prefs.displayName || mb?.display_name || (s.kind === 'demo' ? 'Demo User' : ''),
     prefs, prefsSaved, appName: st.appName, protocol: st.protocol, maxUploadMb: st.maxUploadMb, linkExpires,
     canChangePassword: s.kind === 'user' && provision.mode() !== 'manual',
     servers: { imap: st.imap, pop3: st.pop3, smtp: st.smtp },
@@ -110,8 +121,8 @@ router.get('/me', wrap(async (req, res) => {
 }));
 
 router.put('/prefs', wrap(async (req, res) => {
-  const prefs = { ...(await getPrefs(req.mailSession.address)), ...cleanPrefs(req.body || {}) };
-  await db.q('INSERT INTO user_prefs (address, prefs) VALUES (?, ?) ON DUPLICATE KEY UPDATE prefs = VALUES(prefs)', [req.mailSession.address, JSON.stringify(prefs)]);
+  const prefs = { ...(await getPrefs(req.mailSession.owner)), ...cleanPrefs(req.body || {}) };
+  await db.q('INSERT INTO user_prefs (address, prefs) VALUES (?, ?) ON DUPLICATE KEY UPDATE prefs = VALUES(prefs)', [req.mailSession.owner, JSON.stringify(prefs)]);
   res.json({ prefs });
 }));
 
@@ -194,7 +205,7 @@ router.post('/folders/empty', wrap(async (req, res) => {
 router.get('/messages', wrap(async (req, res) => {
   const st = await store(req);
   const f = folderOf(req);
-  const prefs = await getPrefs(req.mailSession.address);
+  const prefs = await getPrefs(req.mailSession.owner);
   const size = int(req.query.size, prefs.pageSize, 10, 200);
   const page = int(req.query.page, 1, 1, 100000);
   const text = str(req.query.q, 200);
@@ -219,11 +230,11 @@ router.get('/message', wrap(async (req, res) => {
   const f = folderOf(req);
   const uid = int(req.query.uid, 0, 1);
   const { st, parsed } = await loadMessage(req, f, uid);
-  const prefs = await getPrefs(req.mailSession.address);
+  const prefs = await getPrefs(req.mailSession.owner);
   let blockRemote = prefs.blockRemote && req.query.images !== '1';
   // Người gửi có trong danh bạ thì luôn hiện ảnh.
   const sender = parsed.from?.value?.[0]?.address?.toLowerCase();
-  if (blockRemote && sender && await db.one('SELECT 1 x FROM contacts WHERE owner = ? AND email = ? AND collected = 0', [req.mailSession.address, sender])) blockRemote = false;
+  if (blockRemote && sender && await db.one('SELECT 1 x FROM contacts WHERE owner = ? AND email = ? AND collected = 0', [req.mailSession.owner, sender])) blockRemote = false;
   const view = render.toView(parsed, { blockRemote, partUrl: partUrl(f, uid) });
   if (req.query.peek !== '1') await st.flags(f, [uid], ['\\Seen']).catch(() => {});
   res.json({ uid, folder: f, ...view });
@@ -363,7 +374,7 @@ router.post('/upload', (req, res, next) => {
       if (f.size > max) { fs.unlink(f.path, () => {}); out.push({ error: 'file_too_large', name: f.originalname }); continue; }
       const id = path.basename(f.path);
       const name = Buffer.from(f.originalname, 'latin1').toString('utf8');
-      uploads.set(id, { owner: req.mailSession.address, name, type: f.mimetype, size: f.size, file: f.path, t: Date.now() });
+      uploads.set(id, { owner: req.mailSession.owner, name, type: f.mimetype, size: f.size, file: f.path, t: Date.now() });
       out.push({ id, name, size: f.size, type: f.mimetype });
     }
     res.json({ files: out });
@@ -371,7 +382,7 @@ router.post('/upload', (req, res, next) => {
 });
 router.delete('/upload/:id', (req, res) => {
   const u = uploads.get(req.params.id);
-  if (u && u.owner === req.mailSession.address) { fs.unlink(u.file, () => {}); uploads.delete(req.params.id); }
+  if (u && u.owner === req.mailSession.owner) { fs.unlink(u.file, () => {}); uploads.delete(req.params.id); }
   res.json({ ok: true });
 });
 setInterval(() => {
@@ -400,7 +411,7 @@ function inlineDataImages(html, attachments) {
 async function buildMail(req) {
   const s = req.mailSession;
   const b = req.body || {};
-  const prefs = await getPrefs(s.address);
+  const prefs = await getPrefs(s.owner);
   const mb = await db.one('SELECT display_name FROM mailboxes WHERE address = ?', [s.address]);
   const to = parseAddrs(b.to);
   const cc = parseAddrs(b.cc);
@@ -412,7 +423,7 @@ async function buildMail(req) {
   const attachments = [];
   for (const id of (Array.isArray(b.attachments) ? b.attachments : []).slice(0, 30)) {
     const u = uploads.get(id);
-    if (u && u.owner === s.address) attachments.push({ filename: u.name, path: u.file, contentType: u.type });
+    if (u && u.owner === s.owner) attachments.push({ filename: u.name, path: u.file, contentType: u.type });
   }
   // Tệp đính kèm lấy lại từ thư gốc (chuyển tiếp / nháp).
   for (const p of (Array.isArray(b.parts) ? b.parts : []).slice(0, 30)) {
@@ -453,9 +464,16 @@ async function removeDraft(req, st, b) {
 router.post('/send', wrap(async (req, res) => {
   const s = req.mailSession;
   if (!s.can_send) fail(403, 'sending_disabled');
-  if (limited('send:' + s.address, 120, 3600e3)) fail(429, 'send_rate_limited');
+  if (limited('send:' + s.owner, 120, 3600e3)) fail(429, 'send_rate_limited');
   const { mail, all, prefs } = await buildMail(req);
   if (!all.length) fail(400, 'no_recipients');
+  if (s.kind === 'demo') {
+    const st = await store(req);
+    const r = await demo.deliver(st, mail, all);
+    await removeDraft(req, st, req.body);
+    if (req.body.origin?.uid) await st.flags(str(req.body.origin.f, 500), [int(req.body.origin.uid, 0, 1)], [req.body.origin.mode === 'forward' ? '$Forwarded' : '\\Answered']).catch(() => {});
+    return res.json({ ok: true, messageId: r.messageId, warnings: ['demo_not_delivered'] });
+  }
   const pass = await session.mailPassword(s);
   let result;
   try { result = await smtp.send(s.address, pass, mail); } catch (e) {
@@ -474,10 +492,10 @@ router.post('/send', wrap(async (req, res) => {
     const flag = b.origin.mode === 'forward' ? '$Forwarded' : '\\Answered';
     await st.flags(str(b.origin.f, 500), [int(b.origin.uid, 0, 1)], [flag]).catch(() => {});
   }
-  for (const id of b.attachments || []) { const u = uploads.get(id); if (u && u.owner === s.address) { fs.unlink(u.file, () => {}); uploads.delete(id); } }
+  for (const id of b.attachments || []) { const u = uploads.get(id); if (u && u.owner === s.owner) { fs.unlink(u.file, () => {}); uploads.delete(id); } }
   if (prefs.collectContacts) {
     for (const a of all) {
-      await db.q('INSERT IGNORE INTO contacts (owner, name, email, collected) VALUES (?, ?, ?, 1)', [s.address, a.name.slice(0, 190), a.address.toLowerCase().slice(0, 255)]).catch(() => {});
+      await db.q('INSERT IGNORE INTO contacts (owner, name, email, collected) VALUES (?, ?, ?, 1)', [s.owner, a.name.slice(0, 190), a.address.toLowerCase().slice(0, 255)]).catch(() => {});
     }
   }
   res.json({ ok: true, messageId: result.messageId, warnings });
@@ -497,7 +515,7 @@ router.post('/draft', wrap(async (req, res) => {
 // ---------- Danh bạ ----------
 router.get('/contacts', wrap(async (req, res) => {
   const qtext = str(req.query.q, 100);
-  const args = [req.mailSession.address];
+  const args = [req.mailSession.owner];
   let where = 'owner = ?';
   if (qtext) { where += ' AND (name LIKE ? OR email LIKE ? OR org LIKE ?)'; const l = `%${qtext.replace(/[%_\\]/g, m => '\\' + m)}%`; args.push(l, l, l); }
   if (req.query.group === 'saved') where += ' AND collected = 0';
@@ -508,7 +526,7 @@ router.get('/contacts/suggest', wrap(async (req, res) => {
   const qtext = str(req.query.q, 100);
   if (!qtext) return res.json({ contacts: [] });
   const l = `%${qtext.replace(/[%_\\]/g, m => '\\' + m)}%`;
-  res.json({ contacts: await db.q('SELECT name, email FROM contacts WHERE owner = ? AND (name LIKE ? OR email LIKE ?) ORDER BY collected, name LIMIT 10', [req.mailSession.address, l, l]) });
+  res.json({ contacts: await db.q('SELECT name, email FROM contacts WHERE owner = ? AND (name LIKE ? OR email LIKE ?) ORDER BY collected, name LIMIT 10', [req.mailSession.owner, l, l]) });
 }));
 function contactFields(b) {
   const email = str(b.email, 255).toLowerCase();
@@ -519,19 +537,19 @@ router.post('/contacts', wrap(async (req, res) => {
   const c = contactFields(req.body);
   await db.q(`INSERT INTO contacts (owner, name, email, phone, org, notes, collected) VALUES (?,?,?,?,?,?,0)
     ON DUPLICATE KEY UPDATE name = VALUES(name), phone = VALUES(phone), org = VALUES(org), notes = VALUES(notes), collected = 0`,
-  [req.mailSession.address, c.name, c.email, c.phone, c.org, c.notes]);
+  [req.mailSession.owner, c.name, c.email, c.phone, c.org, c.notes]);
   res.json({ ok: true });
 }));
 router.put('/contacts/:id', wrap(async (req, res) => {
   const c = contactFields(req.body);
   try {
-    await db.q('UPDATE contacts SET name=?, email=?, phone=?, org=?, notes=?, collected=0 WHERE id = ? AND owner = ?', [c.name, c.email, c.phone, c.org, c.notes, int(req.params.id, 0), req.mailSession.address]);
+    await db.q('UPDATE contacts SET name=?, email=?, phone=?, org=?, notes=?, collected=0 WHERE id = ? AND owner = ?', [c.name, c.email, c.phone, c.org, c.notes, int(req.params.id, 0), req.mailSession.owner]);
   } catch (e) { if (e.code === 'ER_DUP_ENTRY') fail(409, 'contact_exists'); throw e; }
   res.json({ ok: true });
 }));
 router.post('/contacts/delete', wrap(async (req, res) => {
   const ids = uidList(req.body.ids);
-  if (ids.length) await db.q('DELETE FROM contacts WHERE owner = ? AND id IN (?)', [req.mailSession.address, ids]);
+  if (ids.length) await db.q('DELETE FROM contacts WHERE owner = ? AND id IN (?)', [req.mailSession.owner, ids]);
   res.json({ ok: true });
 }));
 router.post('/contacts/import', express.text({ type: '*/*', limit: '5mb' }), wrap(async (req, res) => {
@@ -545,13 +563,13 @@ router.post('/contacts/import', express.text({ type: '*/*', limit: '5mb' }), wra
     const name = get('FN') || get('N').split(';').filter(Boolean).reverse().join(' ');
     await db.q(`INSERT INTO contacts (owner, name, email, phone, org, notes, collected) VALUES (?,?,?,?,?,?,0)
       ON DUPLICATE KEY UPDATE name = IF(VALUES(name) = '', name, VALUES(name)), collected = 0`,
-    [req.mailSession.address, name.slice(0, 190), email, get('TEL').slice(0, 64), get('ORG').replace(/;/g, ' ').trim().slice(0, 190), get('NOTE').slice(0, 1000)]);
+    [req.mailSession.owner, name.slice(0, 190), email, get('TEL').slice(0, 64), get('ORG').replace(/;/g, ' ').trim().slice(0, 190), get('NOTE').slice(0, 1000)]);
     n++;
   }
   res.json({ imported: n });
 }));
 router.get('/contacts/export', wrap(async (req, res) => {
-  const rows = await db.q('SELECT * FROM contacts WHERE owner = ? AND collected = 0 ORDER BY name', [req.mailSession.address]);
+  const rows = await db.q('SELECT * FROM contacts WHERE owner = ? AND collected = 0 ORDER BY name', [req.mailSession.owner]);
   const esc = v => String(v || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
   const out = rows.map(c => ['BEGIN:VCARD', 'VERSION:3.0', `FN:${esc(c.name || c.email)}`, `EMAIL;TYPE=INTERNET:${c.email}`,
     c.phone && `TEL:${esc(c.phone)}`, c.org && `ORG:${esc(c.org)}`, c.notes && `NOTE:${esc(c.notes)}`, 'END:VCARD'].filter(Boolean).join('\r\n')).join('\r\n');

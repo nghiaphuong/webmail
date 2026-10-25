@@ -157,3 +157,4 @@ body.mail { overflow: hidden; }
   body.mail { overflow: visible; }
   .shell { display: block; height: auto; }
 }
+.linkbar.demo { background: var(--primary-soft); color: var(--primary); }

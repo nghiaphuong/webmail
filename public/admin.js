@@ -459,6 +459,12 @@
         <label class="check"><input type="checkbox" name="registrationOpen" ${s.registrationOpen ? 'checked' : ''}><span data-i18n="admin.registrationOpen"></span></label>
         <label class="field"><span data-i18n="admin.maxUpload"></span><input class="input" type="number" min="1" max="50" name="maxUploadMb" value="${esc(s.maxUploadMb)}" style="max-width:140px"></label>
       </div></div>
+      <div class="card" style="margin-bottom:14px"><div class="card-h" data-i18n="admin.demo"></div><div class="card-b stack">
+        <div class="muted small" data-i18n="admin.demoHint"></div>
+        <label class="check"><input type="checkbox" name="demoEnabled" ${s.demoEnabled ? 'checked' : ''}><span data-i18n="admin.demoEnabled"></span></label>
+        <div class="row wrap"><label class="field grow"><span data-i18n="login.email"></span><input class="input" name="demoEmail" type="email" value="${esc(s.demoEmail)}"></label>
+        <label class="field grow"><span data-i18n="login.password"></span><input class="input" name="demoPassword" value="${esc(s.demoPassword)}"></label></div>
+      </div></div>
       ${srv('imap', 'IMAP')}${srv('pop3', 'POP3')}${srv('smtp', 'SMTP')}
       <div class="card" style="margin-bottom:14px"><div class="card-h" data-i18n="admin.notifications"></div><div class="card-b stack">
         <div class="muted small" data-i18n="admin.notificationsHint"></div>
@@ -488,7 +494,7 @@
       const g = n => f[n].value;
       const body = {
         appName: g('appName'), protocol: g('protocol'), pop3LeaveCopy: f.pop3LeaveCopy.checked, registrationOpen: f.registrationOpen.checked,
-        maxUploadMb: Number(g('maxUploadMb')), notifyEmail: g('notifyEmail'), systemMailboxId: g('systemMailboxId') || null,
+        maxUploadMb: Number(g('maxUploadMb')), demoEnabled: f.demoEnabled.checked, demoEmail: g('demoEmail'), demoPassword: g('demoPassword'), notifyEmail: g('notifyEmail'), systemMailboxId: g('systemMailboxId') || null,
       };
       for (const k of ['imap', 'pop3', 'smtp']) body[k] = { host: g(k + '.host'), port: Number(g(k + '.port')), secure: g(k + '.secure') === '1' };
       try { await api('PUT', '/api/admin/settings', body); toast(t('saved'), 'ok'); } catch (err) { toast(errText(err), 'error'); }

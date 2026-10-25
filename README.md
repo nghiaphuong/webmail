@@ -2,6 +2,10 @@
 
 A full webmail for **mail.phuongcode.com** (Node.js + Express + MySQL, vanilla JS front end), in **English (default) and Vietnamese**.
 
+## Live demo
+
+Open **https://mail.phuongcode.com** and press **Open the demo mailbox** (or sign in with `demo@phuongcode.com` / `Demo@2026`). Every visitor gets a private sandbox mailbox stored in the database, pre-filled with sample messages; mail sent from the demo is never delivered outside it (sending to the demo address itself lands in its Inbox), and the sandbox is deleted after 6 hours. The demo account can be switched off or changed under Admin → Server settings.
+
 ## Features
 
 **Webmail (users)**
@@ -38,7 +42,7 @@ cp .env.example .env   # fill DB_* and secrets
 npm start
 ```
 
-`npm run smoke` runs API tests against a local [GreenMail](https://greenmail-mail-test.github.io/greenmail/) server (`PROVISIONER=greenmail`, `MAIL_TLS_INSECURE=true`, IMAP 3993 / POP3 3995 / SMTP 3465). `npm run check` verifies the EN/VI dictionaries.
+`npm run smoke` runs API tests (`scripts/smoke-demo.js` covers the demo sandbox) against a local [GreenMail](https://greenmail-mail-test.github.io/greenmail/) server (`PROVISIONER=greenmail`, `MAIL_TLS_INSECURE=true`, IMAP 3993 / POP3 3995 / SMTP 3465). `npm run check` verifies the EN/VI dictionaries.
 
 ## Security notes
 - Mailbox passwords of signed-in users are encrypted with a key derived from the session cookie; stored passwords (random / link mailboxes) with `ENCRYPTION_KEY`.

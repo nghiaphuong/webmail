@@ -111,3 +111,12 @@ table.grid tr:hover td { background: var(--hover); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
 .brand .logo { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #3b82f6, #6d28d9); display: grid; place-items: center; color: #fff; }
 .brand .logo svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; }
+
+/* Khung tài khoản demo trên trang đăng nhập */
+.demo-box { border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); background: var(--primary-soft); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.demo-badge { width: 34px; height: 34px; border-radius: 9px; background: var(--primary); color: #fff; display: grid; place-items: center; flex: none; }
+.demo-badge .ico { width: 18px; height: 18px; }
+.demo-cred { display: grid; grid-template-columns: 82px 1fr auto; align-items: center; gap: 8px; }
+.demo-cred .code { padding: 6px 9px; font-size: 13.5px; background: var(--panel); }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--border); }

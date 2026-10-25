@@ -64,6 +64,13 @@
       <div class="row"><div class="brand grow">${WM.LOGO}<span>${esc(pub.appName)}</span></div>${WM.langSwitch()}</div>
       <div><h2 style="margin:6px 0 2px;font-size:20px" data-i18n="login.heading"></h2><div class="muted" data-i18n="login.sub"></div></div>
       ${msg ? `<div class="alert warn">${esc(msg)}</div>` : ''}
+      ${pub.demo ? `<div class="demo-box">
+        <div class="row"><span class="demo-badge">${icon('eye')}</span><div class="grow"><b data-i18n="demo.title"></b><div class="muted small" data-i18n="demo.sub"></div></div></div>
+        <div class="demo-cred"><span class="muted small" data-i18n="login.email"></span><span class="code">${esc(pub.demo.email)}</span><button type="button" class="btn ghost icon sm" data-copy="${esc(pub.demo.email)}" data-i18n-title="demo.copy">${icon('copy')}</button></div>
+        <div class="demo-cred"><span class="muted small" data-i18n="login.password"></span><span class="code">${esc(pub.demo.password)}</span><button type="button" class="btn ghost icon sm" data-copy="${esc(pub.demo.password)}" data-i18n-title="demo.copy">${icon('copy')}</button></div>
+        <button type="button" class="btn primary" id="demobtn" style="width:100%;height:40px">${icon('send')}<span data-i18n="demo.enter"></span></button>
+      </div>
+      <div class="or"><span data-i18n="demo.or"></span></div>` : ''}
       <div class="alert error" id="lerr" hidden></div>
       <label class="field"><span data-i18n="login.email"></span><input class="input" type="email" name="email" autocomplete="username" required autofocus placeholder="you@phuongcode.com"></label>
       <label class="field"><span data-i18n="login.password"></span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
@@ -72,6 +79,13 @@
       ${pub.registrationOpen ? `<div class="muted small" style="text-align:center"><span data-i18n="login.noAccount"></span> <a href="/register" data-i18n="login.register"></a></div>` : ''}
     </form></div>`;
     applyI18n(app);
+    $$('[data-copy]', app).forEach(b => b.onclick = () => WM.copy(b.dataset.copy));
+    $('#demobtn')?.addEventListener('click', () => {
+      const f = $('#login');
+      f.email.value = pub.demo.email;
+      f.password.value = pub.demo.password;
+      f.requestSubmit();
+    });
     $('#login').addEventListener('submit', async e => {
       e.preventDefault();
       const f = e.target;
@@ -129,6 +143,7 @@
           <div class="quota" id="quota" hidden></div>
         </aside>
         <section class="content" id="content">
+          ${me.kind === 'demo' ? `<div class="linkbar demo">${icon('eye')}<span>${esc(t('demo.banner', { address: me.address }))}</span></div>` : ''}
           ${me.kind === 'link' ? `<div class="linkbar">${icon('link')}<span>${esc(t('link.banner'))}${me.linkExpires ? ' · ' + esc(t('link.expires', { date: fmtDate(me.linkExpires, true) })) : ''}${me.canSend ? '' : ' · ' + esc(t('link.readOnly'))}</span></div>` : ''}
           <div id="view" style="display:flex;flex-direction:column;flex:1;min-height:0"></div>
         </section>
@@ -908,6 +923,7 @@
       c.dirty = false;
       toast(t('compose.sent'), 'ok');
       if (r.warnings?.includes('sent_copy_failed')) toast(t('compose.sentCopyFailed'), 'error');
+      if (r.warnings?.includes('demo_not_delivered')) toast(t('demo.notDelivered', { address: S.me.address }));
       destroyEditor();
       S.compose = null;
       loadFolders();
@@ -1104,7 +1120,7 @@
           <td style="text-align:right">${f.special ? `<span class="badge">${esc(t('settings.system'))}</span>` : `<button class="btn sm" data-fm="${esc(f.path)}">${esc(t('more'))}</button>`}</td></tr>`).join('')}
         </tbody></table></div>`;
     } else if (tab === 'password') {
-      body = S.me.kind === 'link' ? `<div class="card-b"><div class="alert">${esc(t('settings.linkNoPassword'))}</div></div>` : !S.me.canChangePassword ? `<div class="card-b"><div class="alert">${esc(t('settings.passwordManual'))}</div></div>` :
+      body = S.me.kind === 'demo' ? `<div class="card-b"><div class="alert">${esc(t('demo.noPassword'))}</div></div>` : S.me.kind === 'link' ? `<div class="card-b"><div class="alert">${esc(t('settings.linkNoPassword'))}</div></div>` : !S.me.canChangePassword ? `<div class="card-b"><div class="alert">${esc(t('settings.passwordManual'))}</div></div>` :
         `<form class="card-b stack" id="pwform" style="max-width:420px">
           <label class="field"><span>${esc(t('settings.currentPassword'))}</span><input class="input" type="password" name="current" autocomplete="current-password" required></label>
           <label class="field"><span>${esc(t('settings.newPassword'))}</span><input class="input" type="password" name="next" autocomplete="new-password" required></label>

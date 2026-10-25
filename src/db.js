@@ -42,6 +42,10 @@ const DEFAULTS = {
   systemMailboxId: null,
   maxUploadMb: config.maxUploadMb,
   linkDefaultCanSend: true,
+  // Tài khoản demo công khai (hộp thư hộp cát, không gửi thư thật)
+  demoEnabled: true,
+  demoEmail: `demo@${process.env.DEFAULT_DOMAIN || 'phuongcode.com'}`,
+  demoPassword: 'Demo@2026',
 };
 let cache = { ...DEFAULTS };
 

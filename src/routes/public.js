@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/api/public/config', wrap(async (req, res) => {
   const s = db.settings();
   const domains = await db.q('SELECT id, domain FROM domains WHERE active = 1 AND allow_registration = 1 ORDER BY domain');
-  res.json({ appName: s.appName, registrationOpen: !!s.registrationOpen && domains.length > 0, domains });
+  res.json({ appName: s.appName, registrationOpen: !!s.registrationOpen && domains.length > 0, domains, demo: s.demoEnabled ? { email: s.demoEmail, password: s.demoPassword } : null });
 }));
 
 router.get('/api/public/check', wrap(async (req, res) => {

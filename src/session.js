@@ -25,6 +25,8 @@ async function load(raw) {
   const s = await db.one('SELECT * FROM sessions WHERE id = ? AND expires_at > UTC_TIMESTAMP()', [sha256(raw)]);
   if (!s) return null;
   s.raw = raw;
+  // Khóa dữ liệu (danh bạ, tùy chọn, thư cục bộ): mỗi khách demo có hộp thư riêng.
+  s.owner = s.kind === 'demo' ? 'demo:' + s.id.slice(0, 24) : s.address;
   // Cập nhật last_seen tối đa mỗi phút một lần.
   if (Date.now() - Date.parse(s.last_seen + 'Z') > 60e3) db.q('UPDATE sessions SET last_seen = UTC_TIMESTAMP() WHERE id = ?', [s.id]).catch(() => {});
   return s;
@@ -57,12 +59,12 @@ const cleanup = () => db.q('DELETE FROM sessions WHERE expires_at < UTC_TIMESTAM
 async function attach(req, res, next) {
   try {
     req.mailSession = await load(req.cookies?.[COOKIE.user]);
-    if (req.mailSession && !['user', 'link'].includes(req.mailSession.kind)) req.mailSession = null;
+    if (req.mailSession && !['user', 'link', 'demo'].includes(req.mailSession.kind)) req.mailSession = null;
     if (req.mailSession?.kind === 'link') {
       const l = await db.one('SELECT revoked, expires_at FROM access_links WHERE id = ?', [req.mailSession.link_id]);
       if (!l || l.revoked || (l.expires_at && Date.parse(l.expires_at + 'Z') < Date.now())) req.mailSession = null;
     }
-    if (req.mailSession) {
+    if (req.mailSession && req.mailSession.kind !== 'demo') {
       const m = await db.one('SELECT status FROM mailboxes WHERE address = ?', [req.mailSession.address]);
       if (m && m.status === 'disabled') req.mailSession = null;
     }

@@ -208,4 +208,4 @@ class LocalStore {
   }
 }
 
-module.exports = { LocalStore, verify, Pop3Client };
+module.exports = { LocalStore, verify, Pop3Client, indexFields, sqlDate };

@@ -425,6 +425,9 @@ router.put('/settings', wrap(async (req, res) => {
   if ('linkDefaultCanSend' in b) patch.linkDefaultCanSend = !!b.linkDefaultCanSend;
   if ('notifyEmail' in b) { const e = str(b.notifyEmail, 254); if (e && !isEmail(e)) fail(400, 'invalid_email'); patch.notifyEmail = e; }
   if ('systemMailboxId' in b) patch.systemMailboxId = b.systemMailboxId ? int(b.systemMailboxId, null) : null;
+  if ('demoEnabled' in b) patch.demoEnabled = !!b.demoEnabled;
+  if ('demoEmail' in b) { const e = str(b.demoEmail, 254).toLowerCase(); if (!isEmail(e)) fail(400, 'invalid_email'); patch.demoEmail = e; }
+  if ('demoPassword' in b) { const p = str(b.demoPassword, 64); if (p.length < 4) fail(400, 'invalid_input'); patch.demoPassword = p; }
   if ('maxUploadMb' in b) patch.maxUploadMb = int(b.maxUploadMb, 25, 1, 50);
   await db.saveSettings(patch);
   await db.audit(actor(req), 'settings_updated', '', Object.keys(patch).join(','), req.ip);

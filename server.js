@@ -81,7 +81,8 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
     if (!n && process.env.DEFAULT_DOMAIN !== '') {
       await db.q('INSERT INTO domains (domain, allow_registration) VALUES (?, 1)', [process.env.DEFAULT_DOMAIN || 'phuongcode.com']);
     }
-    setInterval(session.cleanup, 3600e3).unref();
+    const demo = require('./src/mail/demo');
+    setInterval(() => session.cleanup().then(demo.cleanup), 3600e3).unref();
     console.log('Database ready');
   } catch (e) {
     console.error('Startup error – check DB_* variables:', e.message);
